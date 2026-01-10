@@ -21,7 +21,7 @@ This project uses Docker Compose to run the Laravel application with PostgreSQL.
    DB_PORT=5432
    DB_DATABASE=laravel
    DB_USERNAME=laravel
-   DB_PASSWORD=password
+   DB_PASSWORD=secret123
    ```
 
 3. **Build and start the containers:**
