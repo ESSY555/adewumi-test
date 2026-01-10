@@ -35,11 +35,20 @@ RUN docker-php-ext-install \
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
+# Copy composer files first for dependency caching
+COPY composer.json composer.lock ./
+
+# Install Composer dependencies
+RUN composer install --no-interaction --prefer-dist --optimize-autoloader --no-scripts
+
 # Copy entrypoint script
 COPY docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
-# Copy existing application directory permissions
+# Copy application files
+COPY . .
+
+# Set proper permissions
 RUN chown -R www-data:www-data /var/www/html
 
 # Expose port 8000

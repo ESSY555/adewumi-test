@@ -3,10 +3,19 @@ set -e
 
 echo "Starting Laravel application setup..."
 
+# Wait for composer.json to be available (in case of volume mount timing issues)
+if [ ! -f "composer.json" ]; then
+    echo "Waiting for composer.json to be available..."
+    sleep 2
+fi
+
 # Install dependencies if vendor directory doesn't exist
-if [ ! -d "vendor" ]; then
+if [ ! -d "vendor" ] && [ -f "composer.json" ]; then
     echo "Installing Composer dependencies..."
     composer install --no-interaction --prefer-dist --optimize-autoloader
+elif [ ! -f "composer.json" ]; then
+    echo "ERROR: composer.json not found. Please ensure the application files are properly mounted."
+    exit 1
 fi
 
 # Generate application key if not set
@@ -23,5 +32,8 @@ php artisan cache:clear || true
 # echo "Running database migrations..."
 # php artisan migrate --force
 
-echo "Starting Laravel development server..."
-exec php artisan serve --host=0.0.0.0 --port=8000
+# Use Railway's PORT environment variable if available, otherwise default to 8000
+PORT=${PORT:-8000}
+
+echo "Starting Laravel development server on port $PORT..."
+exec php artisan serve --host=0.0.0.0 --port=$PORT
