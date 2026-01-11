@@ -1,4 +1,5 @@
-FROM php:8.2-cli-alpine
+# Use PHP-FPM Alpine base
+FROM php:8.2-fpm-alpine
 
 # Set working directory
 WORKDIR /var/www/html
@@ -15,9 +16,12 @@ RUN apk add --no-cache \
     postgresql-client \
     oniguruma-dev \
     icu-dev \
+    bash \
     nodejs \
     npm \
-    bash
+    shadow \
+    supervisor \
+    nginx
 
 # Install PHP extensions
 RUN docker-php-ext-install \
@@ -35,24 +39,25 @@ RUN docker-php-ext-install \
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Copy composer files first for dependency caching
+# Copy composer files for caching
 COPY composer.json composer.lock ./
 
-# Install Composer dependencies
+# Install dependencies
 RUN composer install --no-interaction --prefer-dist --optimize-autoloader --no-scripts
 
-# Copy entrypoint script
+# Copy app code
+COPY . .
+
+# Copy entrypoint
 COPY docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
-# Copy application files
-COPY . .
+# Set permissions
+RUN chown -R www-data:www-data /var/www/html \
+    && chmod -R 755 /var/www/html
 
-# Set proper permissions
-RUN chown -R www-data:www-data /var/www/html
+# Expose port 80 (for Nginx)
+EXPOSE 80
 
-# Expose port 8000
-EXPOSE 8000
-
-# Use entrypoint script
+# Entrypoint
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]

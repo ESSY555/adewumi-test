@@ -8,3 +8,6 @@ Route::prefix('v1')->group(function () {
     Route::post('/secrets', [SecretController::class, 'store'])->middleware('throttle:10,1');
     Route::get('/secrets/{id}', [SecretController::class, 'show']);
 });
+
+
+

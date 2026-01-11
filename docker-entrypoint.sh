@@ -1,31 +1,18 @@
 #!/bin/sh
 set -e
 
-echo "Starting Laravel application setup..."
+echo "Waiting for PostgreSQL..."
+until pg_isready -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USERNAME"; do
+  sleep 2
+done
 
-# Wait for composer.json to be available (in case of volume mount timing issues)
-if [ ! -f "composer.json" ]; then
-    echo "Waiting for composer.json to be available..."
-    sleep 2
-fi
-
-# Install dependencies if vendor directory doesn't exist
-if [ ! -d "vendor" ] && [ -f "composer.json" ]; then
-    echo "Installing Composer dependencies..."
-    composer install --no-interaction --prefer-dist --optimize-autoloader
-elif [ ! -f "composer.json" ]; then
-    echo "ERROR: composer.json not found. Please ensure the application files are properly mounted."
-    exit 1
-fi
-
-# Create .env file if it doesn't exist (for Railway/deployment environments)
+# Create .env if missing
 if [ ! -f ".env" ]; then
     echo "Creating .env file from environment variables..."
-    # Create a basic .env file with essential variables
     {
         echo "APP_NAME=${APP_NAME:-Laravel}"
         echo "APP_ENV=${APP_ENV:-production}"
-        echo "APP_KEY=${APP_KEY:-}"
+        echo "APP_KEY="
         echo "APP_DEBUG=${APP_DEBUG:-false}"
         echo "APP_URL=${APP_URL:-http://localhost}"
         echo ""
@@ -34,7 +21,7 @@ if [ ! -f ".env" ]; then
         echo "DB_PORT=${DB_PORT:-5432}"
         echo "DB_DATABASE=${DB_DATABASE:-laravel}"
         echo "DB_USERNAME=${DB_USERNAME:-laravel}"
-        echo "DB_PASSWORD=${DB_PASSWORD:-}"
+        echo "DB_PASSWORD=${DB_PASSWORD:-secret123}"
         echo ""
         echo "CACHE_DRIVER=${CACHE_DRIVER:-database}"
         echo "QUEUE_CONNECTION=${QUEUE_CONNECTION:-sync}"
@@ -42,25 +29,26 @@ if [ ! -f ".env" ]; then
     } > .env
 fi
 
-# Generate application key if not set
-if [ -z "$APP_KEY" ] || ! grep -q "APP_KEY=base64:" .env 2>/dev/null; then
+# Generate APP_KEY if missing
+if ! grep -q "APP_KEY=base64:" .env; then
     echo "Generating application key..."
-    php artisan key:generate --force || true
+    php artisan key:generate --force
 fi
 
-# Clear and cache config (skip if database tables don't exist yet)
+# Clear caches
 php artisan config:clear || true
-# Skip cache:clear if database tables don't exist (common on first run)
-php artisan cache:clear 2>/dev/null || echo "Cache clear skipped (database may not be ready)"
+php artisan cache:clear || true
 
-# Run migrations if AUTO_MIGRATE is set to true (useful for Railway)
+# Run migrations if AUTO_MIGRATE=true
 if [ "$AUTO_MIGRATE" = "true" ]; then
     echo "Running database migrations..."
-    php artisan migrate --force || echo "Migrations failed or already up to date"
+    php artisan migrate --force || echo "Migrations skipped or failed"
 fi
 
-# Use Railway's PORT environment variable if available, otherwise default to 8000
-PORT=${PORT:-8000}
+# Start PHP-FPM in background
+echo "Starting PHP-FPM..."
+php-fpm &
 
-echo "Starting Laravel development server on port $PORT..."
-exec php artisan serve --host=0.0.0.0 --port=$PORT
+# Start Nginx in foreground
+echo "Starting Nginx..."
+nginx -g "daemon off;"
