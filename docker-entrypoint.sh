@@ -1,14 +1,15 @@
 #!/bin/sh
 set -e
 
-echo "Waiting for PostgreSQL..."
+echo "[inf] Waiting for PostgreSQL..."
 until pg_isready -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USERNAME"; do
   sleep 2
 done
+echo "[inf] PostgreSQL is ready!"
 
 # Create .env if missing
 if [ ! -f ".env" ]; then
-    echo "Creating .env file from environment variables..."
+    echo "[inf] Creating .env file from environment variables..."
     {
         echo "APP_NAME=${APP_NAME:-Laravel}"
         echo "APP_ENV=${APP_ENV:-production}"
@@ -31,7 +32,7 @@ fi
 
 # Generate APP_KEY if missing
 if ! grep -q "APP_KEY=base64:" .env; then
-    echo "Generating application key..."
+    echo "[inf] Generating application key..."
     php artisan key:generate --force
 fi
 
@@ -41,13 +42,13 @@ php artisan cache:clear || true
 
 # Run migrations if AUTO_MIGRATE=true
 if [ "$AUTO_MIGRATE" = "true" ]; then
-    echo "Running migrations..."
-    php artisan migrate --force || echo "Migrations skipped or failed"
+    echo "[inf] Running migrations..."
+    php artisan migrate --force || echo "[warn] Migrations skipped or failed"
 fi
 
 # Generate Nginx config dynamically for Railway
 PORT=${PORT:-80}
-echo "Generating Nginx config on PORT=$PORT..."
+echo "[inf] Generating Nginx config on PORT=$PORT..."
 cat > /etc/nginx/conf.d/default.conf <<EOL
 server {
     listen $PORT;
@@ -76,7 +77,7 @@ server {
 }
 EOL
 
-# Start PHP-FPM
+# Start PHP-FPM in background
 php-fpm &
 
 # Start Nginx in foreground

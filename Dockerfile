@@ -22,6 +22,9 @@ RUN apk add --no-cache \
     supervisor \
     nginx
 
+# Create Nginx config directory (fix for Railway)
+RUN mkdir -p /etc/nginx/conf.d
+
 # Install PHP extensions
 RUN docker-php-ext-install \
     pdo \
@@ -41,7 +44,7 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 # Copy composer files first for caching
 COPY composer.json composer.lock ./
 
-# Install dependencies
+# Install Composer dependencies
 RUN composer install --no-interaction --prefer-dist --optimize-autoloader --no-scripts
 
 # Copy app files
