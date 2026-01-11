@@ -1,5 +1,4 @@
-# Use official PHP image with FPM
-FROM php:8.2-fpm
+FROM php:8.2-cli
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -9,29 +8,23 @@ RUN apt-get update && apt-get install -y \
     libpq-dev \
     libzip-dev \
     zip \
+    postgresql-client \
     && docker-php-ext-install pdo pdo_pgsql zip
 
 # Install Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# Set working directory
 WORKDIR /var/www/html
 
-# Copy project files
 COPY . .
 
-# Install PHP dependencies
+# Install dependencies
 RUN composer install --no-dev --optimize-autoloader
 
-# Set permissions
+# Permissions
 RUN chown -R www-data:www-data storage bootstrap/cache
 
-# Copy entrypoint script
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
-# Expose port
-EXPOSE 8000
-
-# Entrypoint
-ENTRYPOINT ["docker-entrypoint.sh"]
+CMD ["/usr/local/bin/docker-entrypoint.sh"]
