@@ -41,14 +41,43 @@ php artisan cache:clear || true
 
 # Run migrations if AUTO_MIGRATE=true
 if [ "$AUTO_MIGRATE" = "true" ]; then
-    echo "Running database migrations..."
+    echo "Running migrations..."
     php artisan migrate --force || echo "Migrations skipped or failed"
 fi
 
-# Start PHP-FPM in background
-echo "Starting PHP-FPM..."
+# Generate Nginx config dynamically for Railway
+PORT=${PORT:-80}
+echo "Generating Nginx config on PORT=$PORT..."
+cat > /etc/nginx/conf.d/default.conf <<EOL
+server {
+    listen $PORT;
+    server_name localhost;
+    root /var/www/html/public;
+
+    index index.php index.html;
+
+    location / {
+        try_files \$uri \$uri/ /index.php?\$query_string;
+    }
+
+    location ~ \.php\$ {
+        include fastcgi_params;
+        fastcgi_pass 127.0.0.1:9000;
+        fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
+        fastcgi_param PATH_INFO \$fastcgi_path_info;
+    }
+
+    location ~ /\.ht {
+        deny all;
+    }
+
+    error_log /var/log/nginx/error.log;
+    access_log /var/log/nginx/access.log;
+}
+EOL
+
+# Start PHP-FPM
 php-fpm &
 
 # Start Nginx in foreground
-echo "Starting Nginx..."
 nginx -g "daemon off;"

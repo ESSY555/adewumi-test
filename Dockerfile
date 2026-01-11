@@ -1,7 +1,6 @@
-# Use PHP-FPM Alpine base
+# Use PHP-FPM Alpine
 FROM php:8.2-fpm-alpine
 
-# Set working directory
 WORKDIR /var/www/html
 
 # Install system dependencies
@@ -39,16 +38,16 @@ RUN docker-php-ext-install \
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Copy composer files for caching
+# Copy composer files first for caching
 COPY composer.json composer.lock ./
 
 # Install dependencies
 RUN composer install --no-interaction --prefer-dist --optimize-autoloader --no-scripts
 
-# Copy app code
+# Copy app files
 COPY . .
 
-# Copy entrypoint
+# Copy entrypoint script
 COPY docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
@@ -56,7 +55,7 @@ RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 RUN chown -R www-data:www-data /var/www/html \
     && chmod -R 755 /var/www/html
 
-# Expose port 80 (for Nginx)
+# Expose port 80 for Nginx
 EXPOSE 80
 
 # Entrypoint
