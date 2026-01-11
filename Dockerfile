@@ -1,54 +1,37 @@
 # Use official PHP image with FPM
-FROM php:8.2-fpm-alpine
-
-# Set working directory
-WORKDIR /var/www/html
+FROM php:8.2-fpm
 
 # Install system dependencies
-RUN apk add --no-cache \
-    bash \
-    curl \
+RUN apt-get update && apt-get install -y \
     git \
-    zip \
     unzip \
-    libpng-dev \
-    libjpeg-turbo-dev \
-    freetype-dev \
-    icu-dev \
+    curl \
+    libpq-dev \
     libzip-dev \
-    oniguruma-dev \
-    postgresql-dev \
-    postgresql-client \
-    npm \
-    nodejs \
-    && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install \
-        pdo \
-        pdo_pgsql \
-        pgsql \
-        mbstring \
-        bcmath \
-        intl \
-        gd \
-        zip \
-        opcache
+    zip \
+    && docker-php-ext-install pdo pdo_pgsql zip
 
 # Install Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# Copy existing application code
+# Set working directory
+WORKDIR /var/www/html
+
+# Copy project files
 COPY . .
 
-# Ensure permissions are correct
-RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
+# Install PHP dependencies
+RUN composer install --no-dev --optimize-autoloader
 
-# Expose port 8000 for Laravel
-EXPOSE 8000
+# Set permissions
+RUN chown -R www-data:www-data storage bootstrap/cache
 
-# Entrypoint script
+# Copy entrypoint script
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
-# Start the container
+# Expose port
+EXPOSE 8000
+
+# Entrypoint
 ENTRYPOINT ["docker-entrypoint.sh"]
-CMD ["php-fpm"]
