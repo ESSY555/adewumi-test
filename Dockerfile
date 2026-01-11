@@ -1,4 +1,4 @@
-# Stage 0: Base PHP image
+# Use official PHP image with FPM
 FROM php:8.2-fpm-alpine
 
 # Set working directory
@@ -7,55 +7,48 @@ WORKDIR /var/www/html
 # Install system dependencies
 RUN apk add --no-cache \
     bash \
-    postgresql-dev \
-    libzip-dev \
-    oniguruma-dev \
-    icu-dev \
+    curl \
+    git \
+    zip \
+    unzip \
     libpng-dev \
     libjpeg-turbo-dev \
     freetype-dev \
-    zip \
-    curl \
-    git \
+    icu-dev \
+    libzip-dev \
+    oniguruma-dev \
+    postgresql-dev \
+    postgresql-client \
     npm \
     nodejs \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install \
-    pdo \
-    pdo_pgsql \
-    pgsql \
-    mbstring \
-    exif \
-    pcntl \
-    bcmath \
-    gd \
-    zip \
-    intl \
-    opcache
+        pdo \
+        pdo_pgsql \
+        pgsql \
+        mbstring \
+        bcmath \
+        intl \
+        gd \
+        zip \
+        opcache
 
-# Copy composer from official composer image
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+# Install Composer
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# Copy composer files
-COPY composer.json composer.lock ./
-
-# Install PHP dependencies
-RUN composer install --no-interaction --prefer-dist --optimize-autoloader --no-scripts
-
-# Copy the app source code
+# Copy existing application code
 COPY . .
 
-# Set permissions
-RUN chown -R www-data:www-data /var/www/html \
-    && chmod -R 755 /var/www/html
+# Ensure permissions are correct
+RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
 
-# Set environment variable for Laravel
-ENV APP_ENV=production
+# Expose port 8000 for Laravel
+EXPOSE 8000
 
-# Expose port (Railway will use $PORT)
-EXPOSE 8080
-
-# Set entrypoint
-COPY docker-entrypoint.sh /usr/local/bin/
+# Entrypoint script
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
+# Start the container
 ENTRYPOINT ["docker-entrypoint.sh"]
+CMD ["php-fpm"]
