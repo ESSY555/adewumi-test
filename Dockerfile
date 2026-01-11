@@ -1,32 +1,25 @@
-# Use PHP-FPM Alpine
+# Stage 0: Base PHP image
 FROM php:8.2-fpm-alpine
 
+# Set working directory
 WORKDIR /var/www/html
 
 # Install system dependencies
 RUN apk add --no-cache \
-    git \
-    curl \
-    libpng-dev \
-    libzip-dev \
-    zip \
-    unzip \
+    bash \
     postgresql-dev \
-    postgresql-client \
+    libzip-dev \
     oniguruma-dev \
     icu-dev \
-    bash \
-    nodejs \
+    libpng-dev \
+    libjpeg-turbo-dev \
+    freetype-dev \
+    zip \
+    curl \
+    git \
     npm \
-    shadow \
-    supervisor \
-    nginx
-
-# Create Nginx config directory (fix for Railway)
-RUN mkdir -p /etc/nginx/conf.d
-
-# Install PHP extensions
-RUN docker-php-ext-install \
+    nodejs \
+    && docker-php-ext-install \
     pdo \
     pdo_pgsql \
     pgsql \
@@ -36,30 +29,33 @@ RUN docker-php-ext-install \
     bcmath \
     gd \
     zip \
-    intl
+    intl \
+    opcache
 
-# Install Composer
+# Copy composer from official composer image
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Copy composer files first for caching
+# Copy composer files
 COPY composer.json composer.lock ./
 
-# Install Composer dependencies
+# Install PHP dependencies
 RUN composer install --no-interaction --prefer-dist --optimize-autoloader --no-scripts
 
-# Copy app files
+# Copy the app source code
 COPY . .
-
-# Copy entrypoint script
-COPY docker-entrypoint.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 # Set permissions
 RUN chown -R www-data:www-data /var/www/html \
     && chmod -R 755 /var/www/html
 
-# Expose port 80 for Nginx
-EXPOSE 80
+# Set environment variable for Laravel
+ENV APP_ENV=production
 
-# Entrypoint
-ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+# Expose port (Railway will use $PORT)
+EXPOSE 8080
+
+# Set entrypoint
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+ENTRYPOINT ["docker-entrypoint.sh"]
