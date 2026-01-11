@@ -41,7 +41,8 @@ if [ ! -f .env ]; then
   {
     echo "APP_NAME=${APP_NAME:-Laravel}"
     echo "APP_ENV=${APP_ENV:-production}"
-    echo "APP_KEY="
+    # Use APP_KEY from environment if set, otherwise leave empty (will be generated)
+    echo "APP_KEY=${APP_KEY:-}"
     echo "APP_DEBUG=${APP_DEBUG:-false}"
     echo "APP_URL=${APP_URL:-http://localhost}"
     echo ""
@@ -63,9 +64,25 @@ if [ ! -d "vendor" ]; then
   composer install --no-dev --optimize-autoloader
 fi
 
-# Generate APP_KEY if missing
-if ! grep -q "APP_KEY" .env || [ -z "$(grep APP_KEY .env | cut -d '=' -f2)" ]; then
-  php artisan key:generate --force
+# Generate APP_KEY if missing or empty
+# Check if APP_KEY is set in environment variable (from Railway)
+if [ -n "$APP_KEY" ]; then
+  echo "Using APP_KEY from environment variable"
+  # Update .env with the environment variable value
+  if grep -q "^APP_KEY=" .env; then
+    sed -i "s|^APP_KEY=.*|APP_KEY=$APP_KEY|" .env
+  else
+    echo "APP_KEY=$APP_KEY" >> .env
+  fi
+else
+  # Check if APP_KEY exists in .env and has a value
+  APP_KEY_VALUE=$(grep "^APP_KEY=" .env | cut -d '=' -f2- | tr -d ' ' | tr -d '"' | tr -d "'" || echo "")
+  if [ -z "$APP_KEY_VALUE" ]; then
+    echo "APP_KEY is missing or empty. Generating new key..."
+    php artisan key:generate --force
+  else
+    echo "APP_KEY already exists in .env file"
+  fi
 fi
 
 # Wait for Postgres using Railway environment variables or .env values
